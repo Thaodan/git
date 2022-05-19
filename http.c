@@ -149,6 +149,19 @@ static int http_schannel_check_revoke = 1;
  */
 static int http_schannel_use_ssl_cainfo;
 
+/*
+ * Check if a given string is a PKCS#11 URI
+ */
+static int is_pkcs11_uri(const char *string)
+{
+	if(curl_strnequal(string, "pkcs11:", 7)) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
 size_t fread_buffer(char *ptr, size_t eltsize, size_t nmemb, void *buffer_)
 {
 	size_t size = eltsize * nmemb;
@@ -1022,8 +1035,10 @@ static CURL *get_curl_handle(void)
 
 	if (ssl_cert)
 		curl_easy_setopt(result, CURLOPT_SSLCERT, ssl_cert);
-	if (ssl_cert_type)
+	if (ssl_cert_type) {
 		curl_easy_setopt(result, CURLOPT_SSLCERTTYPE, ssl_cert_type);
+	} else if (ssl_cert && (is_pkcs11_uri(ssl_cert)))
+		curl_easy_setopt(result, CURLOPT_SSLCERTTYPE, "ENG");
 	if (has_cert_password())
 		curl_easy_setopt(result, CURLOPT_KEYPASSWD, cert_auth.password);
 	if (ssl_key)
@@ -1146,8 +1161,11 @@ static CURL *get_curl_handle(void)
 		else if (starts_with(curl_http_proxy, "https")) {
 			curl_easy_setopt(result, CURLOPT_PROXYTYPE, CURLPROXY_HTTPS);
 
-			if (http_proxy_ssl_cert)
+			if (http_proxy_ssl_cert) {
 				curl_easy_setopt(result, CURLOPT_PROXY_SSLCERT, http_proxy_ssl_cert);
+				if (is_pkcs11_uri(ssl_cert))
+					curl_easy_setopt(result, CURLOPT_PROXY_SSLCERT, "ENG");
+			}
 
 			if (http_proxy_ssl_key)
 				curl_easy_setopt(result, CURLOPT_PROXY_SSLKEY, http_proxy_ssl_key);
